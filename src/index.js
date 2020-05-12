@@ -2,11 +2,12 @@
 
 /* eslint no-console: off */
 
+const path = require('path')
 const parseArgs = require('minimist')
-const debug = require('debug')('cozyYoutube')
+const debug = require('debug')('ytwl')
 const low = require('lowdb')
 const FileSync = require('lowdb/adapters/FileSync')
-const adapter = new FileSync('./data/youtube.json')
+const adapter = new FileSync(path.join(__dirname, '..', 'data/youtube.json'))
 const db = low(adapter)
 const fetchWatchList = require('./youtubeWatchListConnector')
 const _ = require('lodash')
@@ -28,7 +29,10 @@ const commands = {
     const list = await fetchWatchList()
     debug('result: %O', list)
     if (reset) {
-      db.set('videos', list).write()
+      db.set(
+        'videos',
+        list.map((v) => ({ ...v, metadata: { importDate: new Date() } }))
+      ).write()
     } else {
       const existingIds = db.get('videos').map('_id').value()
       const fetchedIndex = _(list).keyBy('_id').value()
@@ -42,16 +46,30 @@ const commands = {
       const toAddIds = _.difference(Object.keys(fetchedIndex), existingIds)
       let videos = db.get('videos')
       for (const id of toAddIds) {
-        videos.push(fetchedIndex[id]).write()
+        videos.push({ ...fetchedIndex[id], importDate: new Date() }).write()
       }
       console.log(`${chalk.green(toAddIds.length)} videos added`)
 
       videos = db.get('videos')
       const toUpdateIds = _.intersection(existingIds, Object.keys(fetchedIndex))
+      let upCount = 0
       for (const id of toUpdateIds) {
+        const dbVid = videos.find({ _id: id }).value()
+        if (
+          JSON.stringify(_.omit(dbVid, ['metadata', 'publicationDate'])) !==
+          JSON.stringify(
+            _.omit(fetchedIndex[id], ['metadata', 'publicationDate'])
+          )
+        ) {
+          upCount++
+        }
+        fetchedIndex[id].metadata = {
+          importDate: dbVid.metadata.importDate,
+          updateDate: new Date(),
+        }
         videos.find({ _id: id }).assign(fetchedIndex[id]).write()
       }
-      console.log(`${chalk.yellow(toUpdateIds.length)} videos updated`)
+      console.log(`${chalk.yellow(upCount)} videos updated`)
 
       videos = db.get('videos')
       console.log(

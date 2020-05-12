@@ -1,0 +1,22 @@
+{
+  "name": "cozyYoutube",
+  "version": "1.0.0",
+  "description": "Useable watch later youtube playlist",
+  "main": "index.js",
+  "bin": {
+    "ytwl": "src/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@sindresorhus/is": "^2.1.1",
+    "chalk": "^4.0.0",
+    "date-fns": "^2.13.0",
+    "debug": "^4.1.1",
+    "firefox-cookie": "^1.0.1",
+    "lodash": "^4.17.15",
+    "lowdb": "^1.0.0",
+    "minimist": "^1.2.5",
+    "open": "^7.0.3",
+    "puppeteer": "^3.0.4"
+  }
+}

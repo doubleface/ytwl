@@ -142,6 +142,7 @@ async function stop({ browser, page }) {
 
 function youtubeDataFormater(vid, index, full) {
   const { playlistVideoRenderer } = vid
+  debug('playlistVideoRenderer: %O', playlistVideoRenderer)
   const _id = playlistVideoRenderer.videoId
   is.assert.string(_id)
   const recency = full.length - index // the more the watch list is long, and the more the video is first in the list, the more it is recent
@@ -157,9 +158,13 @@ function youtubeDataFormater(vid, index, full) {
     'title.accessibility.accessibilityData.label'
   )
   is.assert.string(rawTitle)
-  const duration = Number(playlistVideoRenderer.lengthSeconds) // number in seconds
+  const duration = Number(get(playlistVideoRenderer, 'lengthSeconds', 0)) // number in seconds
   is.assert.number(duration)
-  const rawDuration = get(playlistVideoRenderer, 'lengthText.simpleText') // string like nn:nn
+  const rawDuration = get(
+    playlistVideoRenderer,
+    'lengthText.simpleText',
+    'not yet'
+  ) // string like nn:nn
   is.assert.string(rawDuration)
   const percentDurationWatched = get(
     playlistVideoRenderer,

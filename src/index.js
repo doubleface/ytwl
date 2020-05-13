@@ -14,9 +14,10 @@ const _ = require('lodash')
 const open = require('open')
 const formatDistance = require('date-fns/formatDistanceStrict')
 const chalk = require('chalk')
+const is = require('@sindresorhus/is')
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset'],
+  boolean: ['reset', 'views'],
 })
 debug('argv: %O', argv)
 const [command] = argv._
@@ -109,9 +110,19 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
     const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
     open(url)
   },
-  vids: () => {
+  vids: ({ views }) => {
+    let order = ['duration.value']
+    let direction = ['asc']
+    let filter = (v) => v
+
+    if (views) {
+      order = ['views']
+      direction = ['desc']
+      filter = (v) => is.number(v.views)
+    }
     db.get('videos')
-      .orderBy(['duration.value'], ['asc'])
+      .filter(filter)
+      .orderBy(order, direction)
       .slice(0, 10)
       .value()
       .forEach((v) => {

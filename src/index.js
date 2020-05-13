@@ -17,7 +17,7 @@ const chalk = require('chalk')
 const is = require('@sindresorhus/is')
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views'],
+  boolean: ['reset', 'views', 'indice'],
 })
 debug('argv: %O', argv)
 const [command] = argv._
@@ -110,7 +110,7 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
     const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
     open(url)
   },
-  vids: ({ views }) => {
+  vids: ({ views, indice }) => {
     let order = ['duration.value']
     let direction = ['asc']
     let filter = (v) => v
@@ -120,8 +120,15 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
       direction = ['desc']
       filter = (v) => is.number(v.views)
     }
+
+    if (indice) {
+      order = ['indice']
+      direction = ['desc']
+      filter = (v) => is.number(v.views)
+    }
     db.get('videos')
       .filter(filter)
+      .map((v) => ({ ...v, indice: Math.round(v.views / v.duration.value) }))
       .orderBy(order, direction)
       .slice(0, 10)
       .value()
@@ -129,7 +136,9 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
         console.log(
           `${v._id} ${chalk.bold(v.duration.raw.padStart(7, ' '))}: ${
             v.title.value
-          } (${chalk.bold(new Intl.NumberFormat().format(v.views))} views)`
+          } (${chalk.bold(
+            new Intl.NumberFormat().format(v.views)
+          )} views) ${chalk.blue(v.indice)} v/s`
         )
       })
   },

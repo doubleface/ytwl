@@ -147,11 +147,15 @@ function youtubeDataFormater(vid, index, full) {
   const recency = full.length - index // the more the watch list is long, and the more the video is first in the list, the more it is recent
   is.assert.number(recency)
   const title = get(playlistVideoRenderer, 'title.simpleText')
+  if (title === undefined) {
+    debug(`Got %s video deleted`, _id)
+    return { _id, _deleted: true }
+  }
   is.assert.string(title)
   const rawTitle = get(
     playlistVideoRenderer,
     'title.accessibility.accessibilityData.label'
-  ) // string
+  )
   is.assert.string(rawTitle)
   const duration = Number(playlistVideoRenderer.lengthSeconds) // number in seconds
   is.assert.number(duration)

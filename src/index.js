@@ -17,7 +17,7 @@ const chalk = require('chalk')
 const is = require('@sindresorhus/is')
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'indice'],
+  boolean: ['reset', 'views', 'indice', 'short'],
 })
 debug('argv: %O', argv)
 const [command] = argv._
@@ -47,7 +47,9 @@ const commands = {
       const toAddIds = _.difference(Object.keys(fetchedIndex), existingIds)
       let videos = db.get('videos')
       for (const id of toAddIds) {
-        videos.push({ ...fetchedIndex[id], importDate: new Date() }).write()
+        videos
+          .push({ ...fetchedIndex[id], metadata: { importDate: new Date() } })
+          .write()
       }
       console.log(`${chalk.green(toAddIds.length)} videos added`)
 
@@ -110,24 +112,30 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
     const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
     open(url)
   },
-  vids: ({ views, indice }) => {
+  vids: ({ views, indice, short }) => {
     let order = ['duration.value']
     let direction = ['asc']
-    let filter = (v) => v
+    let orderFilter = (v) => v
+    let durationFilter = (v) => v
 
     if (views) {
       order = ['views']
       direction = ['desc']
-      filter = (v) => is.number(v.views)
+      orderFilter = (v) => is.number(v.views)
     }
 
     if (indice) {
       order = ['indice']
       direction = ['desc']
-      filter = (v) => is.number(v.views)
+      orderFilter = (v) => is.number(v.views)
+    }
+
+    if (short) {
+      durationFilter = (v) => v.duration.value <= 600
     }
     db.get('videos')
-      .filter(filter)
+      .filter(orderFilter)
+      .filter(durationFilter)
       .map((v) => ({ ...v, indice: Math.round(v.views / v.duration.value) }))
       .orderBy(order, direction)
       .slice(0, 10)
@@ -138,7 +146,9 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
             v.title.value
           } (${chalk.bold(
             new Intl.NumberFormat().format(v.views)
-          )} views) ${chalk.blue(v.indice)} v/s`
+          )} views) ${chalk.blue(v.indice)} v/s${
+            v._deleted ? chalk.red(' DELETED') : ''
+          }`
         )
       })
   },

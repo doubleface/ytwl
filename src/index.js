@@ -26,69 +26,29 @@ debug('command: %s', command)
 db.defaults({ videos: [], channels: [] }).write()
 
 const commands = {
+  summary: async () => {
+    showSummary(db.get('videos'))
+  },
   sync: async ({ reset }) => {
+    showSummary(db.get('videos'))
     const list = await fetchWatchList()
     debug('result: %O', list)
     if (reset) {
-      db.set(
-        'videos',
-        list.map((v) => ({ ...v, metadata: { importDate: new Date() } }))
-      ).write()
+      db.set('videos', list.map(formatCreateVid)).write()
     } else {
       const existingIds = db.get('videos').map('_id').value()
-      const fetchedIndex = _(list).keyBy('_id').value()
+      const fetchedIndexedById = _(list).keyBy('_id').value()
 
-      const toRemoveIds = _.difference(existingIds, Object.keys(fetchedIndex))
-      db.get('videos')
-        .remove((vid) => toRemoveIds.includes(vid._id))
-        .write()
-      console.log(`${chalk.red(toRemoveIds.length)} videos removed`)
+      const removeCount = removeReadVids(existingIds, fetchedIndexedById)
+      console.log(`${chalk.red(removeCount)} videos removed`)
 
-      const toAddIds = _.difference(Object.keys(fetchedIndex), existingIds)
-      let videos = db.get('videos')
-      for (const id of toAddIds) {
-        videos
-          .push({ ...fetchedIndex[id], metadata: { importDate: new Date() } })
-          .write()
-      }
-      console.log(`${chalk.green(toAddIds.length)} videos added`)
+      const addCount = addNewVids(existingIds, fetchedIndexedById)
+      console.log(`${chalk.green(addCount)} videos added`)
 
-      videos = db.get('videos')
-      const toUpdateIds = _.intersection(existingIds, Object.keys(fetchedIndex))
-      let upCount = 0
-      for (const id of toUpdateIds) {
-        const dbVid = videos.find({ _id: id }).value()
-        if (
-          JSON.stringify(_.omit(dbVid, ['metadata', 'publicationDate'])) !==
-          JSON.stringify(
-            _.omit(fetchedIndex[id], ['metadata', 'publicationDate'])
-          )
-        ) {
-          upCount++
-        }
-        fetchedIndex[id].metadata = {
-          importDate: dbVid.metadata.importDate,
-          updateDate: new Date(),
-        }
-        videos.find({ _id: id }).assign(fetchedIndex[id]).write()
-      }
+      const upCount = updateVidsData(existingIds, fetchedIndexedById)
       console.log(`${chalk.yellow(upCount)} videos updated`)
 
-      videos = db.get('videos')
-      console.log(
-        `
-${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
-          new Intl.NumberFormat().format(videos.map('views').sum().value())
-        )} views and ${chalk.bold(
-          formatDistance(
-            new Date(),
-            new Date(
-              Date.now() + videos.map('duration.value').sum().value() * 1000
-            ),
-            { unit: 'hour' }
-          )
-        )} of viewing time`
-      )
+      showSummary(db.get('videos'))
 
       const channels = db.get('videos').groupBy('channel._id').value()
       db.set('channels', []).write()
@@ -177,6 +137,77 @@ ${chalk.bold(videos.size())} videos to view with a total of ${chalk.bold(
         .value()} more videos`
     )
   },
+}
+
+function formatCreateVid(v) {
+  return { ...v, metadata: { importDate: new Date() } }
+}
+
+function removeReadVids(existingIds, fetchedIndexedById) {
+  const toRemoveIds = _.difference(existingIds, Object.keys(fetchedIndexedById))
+  db.get('videos')
+    .remove((v) => toRemoveIds.includes(v._id))
+    .write()
+  return toRemoveIds.length
+}
+
+function addNewVids(existingIds, fetchedIndexedById) {
+  const toAddIds = _.difference(Object.keys(fetchedIndexedById), existingIds)
+  const videos = db.get('videos')
+  for (const id of toAddIds) {
+    videos.push(formatCreateVid(fetchedIndexedById[id])).write()
+  }
+  return toAddIds.length
+}
+
+function updateVidsData(existingIds, fetchedIndexedById) {
+  const videos = db.get('videos')
+  const toUpdateIds = _.intersection(
+    existingIds,
+    Object.keys(fetchedIndexedById)
+  )
+  let upCount = 0
+  for (const id of toUpdateIds) {
+    const dbVid = videos.find({ _id: id }).value()
+    if (findUpdatedData(dbVid, fetchedIndexedById[id])) {
+      upCount++
+    }
+    fetchedIndexedById[id].metadata = {
+      importDate: dbVid.metadata.importDate,
+      updateDate: new Date(),
+    }
+    videos.find({ _id: id }).assign(fetchedIndexedById[id]).write()
+  }
+  return upCount
+}
+function findUpdatedData(oldVid, newVid) {
+  const blackListAttributes = ['metadata', 'publicationDate']
+  return (
+    JSON.stringify(_.omit(oldVid, blackListAttributes)) !==
+    JSON.stringify(_.omit(newVid, blackListAttributes))
+  )
+}
+
+function getSummary(videos) {
+  return {
+    count: videos.size(),
+    nbViews: new Intl.NumberFormat().format(videos.map('views').sum().value()),
+    totalTime: formatDistance(
+      new Date(),
+      new Date(Date.now() + videos.map('duration.value').sum().value() * 1000),
+      { unit: 'hour' }
+    ),
+  }
+}
+
+function showSummary(videos) {
+  const summary = getSummary(videos)
+  console.log(
+    `
+${chalk.bold(summary.count)} videos to view with a total of ${chalk.bold(
+      summary.nbViews
+    )} views and ${chalk.bold(summary.totalTime)} of viewing time`
+  )
 }
 
 if (commands[command]) commands[command](argv)

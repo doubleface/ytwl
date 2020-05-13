@@ -96,7 +96,7 @@ const commands = {
     db.get('videos')
       .filter(orderFilter)
       .filter(durationFilter)
-      .map((v) => ({ ...v, indice: Math.round(v.views / v.duration.value) }))
+      .map((v) => ({ ...v, indice: getIndice(v) }))
       .orderBy(order, direction)
       .slice(0, 10)
       .value()
@@ -197,6 +197,7 @@ function getSummary(videos) {
       new Date(Date.now() + videos.map('duration.value').sum().value() * 1000),
       { unit: 'hour' }
     ),
+    totalIndice: videos.map(getIndice).sum().value(),
   }
 }
 
@@ -206,8 +207,16 @@ function showSummary(videos) {
     `
 ${chalk.bold(summary.count)} videos to view with a total of ${chalk.bold(
       summary.nbViews
-    )} views and ${chalk.bold(summary.totalTime)} of viewing time`
+    )} views and ${chalk.bold(
+      summary.totalTime
+    )} of viewing time and ${chalk.blue(summary.totalIndice)} total indice`
   )
+}
+
+function getIndice(v) {
+  if (!_.get(v, 'duration.value')) return 0
+  const result = Math.round(_.get(v, 'views', 0) / _.get(v, 'duration.value'))
+  return result
 }
 
 if (commands[command]) commands[command](argv)

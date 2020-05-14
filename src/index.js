@@ -12,12 +12,13 @@ const db = low(adapter)
 const fetchWatchList = require('./youtubeWatchListConnector')
 const _ = require('lodash')
 const open = require('open')
-const formatDistance = require('date-fns/formatDistanceStrict')
+const dateFns = require('date-fns')
 const chalk = require('chalk')
 const is = require('@sindresorhus/is')
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'indice', 'short', 'long'],
+  boolean: ['reset', 'views', 'indice', 'short', 'long', 'today', 'subWeek'],
+  string: ['since'],
 })
 debug('argv: %O', argv)
 const [command] = argv._
@@ -72,11 +73,12 @@ const commands = {
     const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
     open(url)
   },
-  vids: ({ views, indice, short, long }) => {
+  vids: ({ views, indice, short, long, since, today, subWeek }) => {
     let order = ['duration.value']
     let direction = ['asc']
     let orderFilter = (v) => v
     let durationFilter = (v) => v
+    let dateFilter = (v) => v
 
     if (views) {
       order = ['views']
@@ -97,7 +99,23 @@ const commands = {
     if (long) {
       durationFilter = (v) => v.duration.value >= 3600
     }
+
+    if (since) {
+      const date = new Date(since)
+      dateFilter = (v) => new Date(v.publicationDate) > date
+    }
+
+    if (today) {
+      dateFilter = (v) => dateFns.isToday(new Date(v.publicationDate))
+    }
+
+    if (subWeek) {
+      const date = dateFns.subDays(new Date(), 7)
+      dateFilter = (v) => new Date(v.publicationDate) > date
+    }
+
     db.get('videos')
+      .filter(dateFilter)
       .filter(orderFilter)
       .filter(durationFilter)
       .map((v) => ({ ...v, indice: getIndice(v) }))
@@ -196,7 +214,7 @@ function getSummary(videos) {
   return {
     count: videos.size(),
     nbViews: new Intl.NumberFormat().format(videos.map('views').sum().value()),
-    totalTime: formatDistance(
+    totalTime: dateFns.formatDistance(
       new Date(),
       new Date(Date.now() + videos.map('duration.value').sum().value() * 1000),
       { unit: 'hour' }

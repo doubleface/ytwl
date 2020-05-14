@@ -130,9 +130,12 @@ const commands = {
             v.title.value
           } (${chalk.bold(
             new Intl.NumberFormat().format(v.views)
-          )} views) ${chalk.blue(v.indice)} v/s${
-            v._deleted ? chalk.red(' DELETED') : ''
-          }`,
+          )} views) ${chalk.blue(v.indice)} v/s ${dateFns.formatDistanceToNow(
+            new Date(v.publicationDate),
+            {
+              addSuffix: true,
+            }
+          )}${v._deleted ? chalk.red(' DELETED') : ''}`,
           value: v._id,
         })),
       },

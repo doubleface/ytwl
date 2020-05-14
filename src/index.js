@@ -15,6 +15,7 @@ const open = require('open')
 const dateFns = require('date-fns')
 const chalk = require('chalk')
 const is = require('@sindresorhus/is')
+const inquirer = require('inquirer')
 
 const argv = parseArgs(process.argv.slice(2), {
   boolean: ['reset', 'views', 'indice', 'short', 'long', 'today', 'subWeek'],
@@ -66,14 +67,9 @@ const commands = {
   },
   open: () => {
     const [, _id] = argv._
-    const vid = db.get('videos').find({ _id }).value()
-    if (!vid)
-      throw new Error(`Could not find video with id ${_id}. Need a sync ?`)
-
-    const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
-    open(url)
+    openInBrowser(_id)
   },
-  vids: ({ views, indice, short, long, since, today, subWeek }) => {
+  vids: async ({ views, indice, short, long, since, today, subWeek }) => {
     let order = ['duration.value']
     let direction = ['asc']
     let orderFilter = (v) => v
@@ -114,25 +110,35 @@ const commands = {
       dateFilter = (v) => new Date(v.publicationDate) > date
     }
 
-    db.get('videos')
+    const list = db
+      .get('videos')
       .filter(dateFilter)
       .filter(orderFilter)
       .filter(durationFilter)
       .map((v) => ({ ...v, indice: getIndice(v) }))
       .orderBy(order, direction)
-      .slice(0, 10)
       .value()
-      .forEach((v) => {
-        console.log(
-          `${v._id} ${chalk.bold(v.duration.raw.padStart(7, ' '))}: ${
+
+    const { toOpen } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'toOpen',
+        choices: list.map((v) => ({
+          name: `${chalk.bold.green(
+            v.channel.name.slice(0, 20).padStart(20, ' ')
+          )} ${chalk.bold(v.duration.raw.padStart(7, ' '))}: ${
             v.title.value
           } (${chalk.bold(
             new Intl.NumberFormat().format(v.views)
           )} views) ${chalk.blue(v.indice)} v/s${
             v._deleted ? chalk.red(' DELETED') : ''
-          }`
-        )
-      })
+          }`,
+          value: v._id,
+        })),
+      },
+    ])
+
+    openInBrowser(toOpen)
   },
   channels: () => {
     const channels = db
@@ -214,7 +220,7 @@ function getSummary(videos) {
   return {
     count: videos.size(),
     nbViews: new Intl.NumberFormat().format(videos.map('views').sum().value()),
-    totalTime: dateFns.formatDistance(
+    totalTime: dateFns.formatDistanceStrict(
       new Date(),
       new Date(Date.now() + videos.map('duration.value').sum().value() * 1000),
       { unit: 'hour' }
@@ -239,6 +245,15 @@ function getIndice(v) {
   if (!_.get(v, 'duration.value')) return 0
   const result = Math.round(_.get(v, 'views', 0) / _.get(v, 'duration.value'))
   return result
+}
+
+function openInBrowser(_id) {
+  const vid = db.get('videos').find({ _id }).value()
+  if (!vid)
+    throw new Error(`Could not find video with id ${_id}. Need a sync ?`)
+
+  const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
+  open(url)
 }
 
 if (commands[command]) commands[command](argv)

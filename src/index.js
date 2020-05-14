@@ -17,7 +17,7 @@ const chalk = require('chalk')
 const is = require('@sindresorhus/is')
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'indice', 'short'],
+  boolean: ['reset', 'views', 'indice', 'short', 'long'],
 })
 debug('argv: %O', argv)
 const [command] = argv._
@@ -72,7 +72,7 @@ const commands = {
     const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
     open(url)
   },
-  vids: ({ views, indice, short }) => {
+  vids: ({ views, indice, short, long }) => {
     let order = ['duration.value']
     let direction = ['asc']
     let orderFilter = (v) => v
@@ -92,6 +92,10 @@ const commands = {
 
     if (short) {
       durationFilter = (v) => v.duration.value <= 600
+    }
+
+    if (long) {
+      durationFilter = (v) => v.duration.value >= 3600
     }
     db.get('videos')
       .filter(orderFilter)

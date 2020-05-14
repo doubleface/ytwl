@@ -16,6 +16,7 @@ const dateFns = require('date-fns')
 const chalk = require('chalk')
 const is = require('@sindresorhus/is')
 const inquirer = require('inquirer')
+inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 
 const argv = parseArgs(process.argv.slice(2), {
   boolean: ['reset', 'views', 'short', 'long', 'today', 'subWeek', 'duration'],
@@ -96,9 +97,22 @@ const commands = {
       durationFilter = (v) => v.duration.value >= 3600
     }
 
-    if (since) {
-      const date = new Date(since)
-      dateFilter = (v) => new Date(v.publicationDate) > date
+    if (since !== undefined) {
+      let sinceResult
+      if (since === '') {
+        sinceResult = (
+          await inquirer.prompt({
+            type: 'datetime',
+            name: 'since',
+            message: 'Please choose a date filter from now',
+            format: ['dd', '/', 'mm', '/', 'yyyy'],
+            initial: dateFns.startOfToday(),
+          })
+        ).since
+      } else {
+        sinceResult = new Date(since)
+      }
+      dateFilter = (v) => new Date(v.publicationDate) > sinceResult
     }
 
     if (today) {
@@ -120,18 +134,16 @@ const commands = {
 
     var ui = new inquirer.ui.BottomBar()
     ui.log.write(showSummary(list, true))
-    const { toOpen } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'toOpen',
-        choices: list
-          .map((v) => ({
-            name: getVideoTextToDisplay(v),
-            value: v._id,
-          }))
-          .value(),
-      },
-    ])
+    const { toOpen } = await inquirer.prompt({
+      type: 'list',
+      name: 'toOpen',
+      choices: list
+        .map((v) => ({
+          name: getVideoTextToDisplay(v),
+          value: v._id,
+        }))
+        .value(),
+    })
 
     openInBrowser(toOpen)
   },

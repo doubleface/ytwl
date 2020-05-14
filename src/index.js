@@ -18,7 +18,7 @@ const is = require('@sindresorhus/is')
 const inquirer = require('inquirer')
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'indice', 'short', 'long', 'today', 'subWeek'],
+  boolean: ['reset', 'views', 'short', 'long', 'today', 'subWeek', 'duration'],
   string: ['since'],
 })
 debug('argv: %O', argv)
@@ -69,10 +69,10 @@ const commands = {
     const [, _id] = argv._
     openInBrowser(_id)
   },
-  vids: async ({ views, indice, short, long, since, today, subWeek }) => {
-    let order = ['duration.value']
-    let direction = ['asc']
-    let orderFilter = (v) => v
+  vids: async ({ views, duration, short, long, since, today, subWeek }) => {
+    let order = ['indice']
+    let direction = ['desc']
+    let orderFilter = (v) => is.number(v.views)
     let durationFilter = (v) => v
     let dateFilter = (v) => v
 
@@ -82,10 +82,10 @@ const commands = {
       orderFilter = (v) => is.number(v.views)
     }
 
-    if (indice) {
-      order = ['indice']
-      direction = ['desc']
-      orderFilter = (v) => is.number(v.views)
+    if (duration) {
+      order = ['duration.value']
+      direction = ['asc']
+      orderFilter = (v) => v
     }
 
     if (short) {
@@ -117,27 +117,19 @@ const commands = {
       .filter(durationFilter)
       .map((v) => ({ ...v, indice: getIndice(v) }))
       .orderBy(order, direction)
-      .value()
 
+    var ui = new inquirer.ui.BottomBar()
+    ui.log.write(showSummary(list, true))
     const { toOpen } = await inquirer.prompt([
       {
         type: 'list',
         name: 'toOpen',
-        choices: list.map((v) => ({
-          name: `${chalk.bold.green(
-            v.channel.name.slice(0, 20).padStart(20, ' ')
-          )} ${chalk.bold(v.duration.raw.padStart(7, ' '))}: ${
-            v.title.value
-          } (${chalk.bold(
-            new Intl.NumberFormat().format(v.views)
-          )} views) ${chalk.blue(v.indice)} v/s ${dateFns.formatDistanceToNow(
-            new Date(v.publicationDate),
-            {
-              addSuffix: true,
-            }
-          )}${v._deleted ? chalk.red(' DELETED') : ''}`,
-          value: v._id,
-        })),
+        choices: list
+          .map((v) => ({
+            name: getVideoTextToDisplay(v),
+            value: v._id,
+          }))
+          .value(),
       },
     ])
 
@@ -232,16 +224,21 @@ function getSummary(videos) {
   }
 }
 
-function showSummary(videos) {
+function showSummary(videos, getTextOnly = false) {
   const summary = getSummary(videos)
-  console.log(
-    `
-${chalk.bold(summary.count)} videos to view with a total of ${chalk.bold(
-      summary.nbViews
-    )} views and ${chalk.bold(
-      summary.totalTime
-    )} of viewing time and ${chalk.blue(summary.totalIndice)} total indice`
-  )
+  const finalText = `${chalk.bold(
+    summary.count
+  )} videos to view with a total of ${chalk.bold(
+    summary.nbViews
+  )} views and ${chalk.bold(
+    summary.totalTime
+  )} of viewing time and ${chalk.blue(summary.totalIndice)} total indice`
+  if (getTextOnly) {
+    return finalText
+  }
+  console.log(`
+${finalText}
+      `)
 }
 
 function getIndice(v) {
@@ -257,6 +254,36 @@ function openInBrowser(_id) {
 
   const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
   open(url)
+}
+
+function getVideoTextToDisplay(v, mainField = 'indice') {
+  const channel = chalk.bold.green(
+    fixSize(_.get(v, 'channel.name', 'no channel name'), 20)
+  )
+  const title = fixSize(_.get(v, 'title.value', 'no title'), 50)
+  const duration = fixSize(_.get(v, 'duration.raw', 'no duration'), 7)
+  const views = fixSize(new Intl.NumberFormat().format(v.views) + ' views', 15)
+  const publicationDate = fixSize(
+    dateFns.formatDistanceToNow(new Date(v.publicationDate), {
+      addSuffix: true,
+    }),
+    20
+  )
+  const indice = fixSize(v.indice + ' v/s', 7)
+  const _deleted = v._deleted ? chalk.red(' DELETED') : ''
+
+  let result = `${channel} ${title}: `
+  const fields = { duration, views, indice, publicationDate, _deleted }
+
+  result += chalk.bold(fields[mainField]) + ','
+
+  result += Object.values(_.omit(fields, mainField)).join(', ')
+
+  return result
+}
+
+function fixSize(text, size) {
+  return text.slice(0, size).padStart(size, ' ')
 }
 
 if (commands[command]) commands[command](argv)

@@ -19,7 +19,7 @@ const inquirer = require('inquirer')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'short', 'long', 'today', 'subWeek', 'duration'],
+  boolean: ['reset', 'views', 'short', 'long', 'duration'],
   string: ['since'],
 })
 debug('argv: %O', argv)
@@ -29,9 +29,6 @@ debug('command: %s', command)
 db.defaults({ videos: [], channels: [] }).write()
 
 const commands = {
-  summary: async () => {
-    showSummary(db.get('videos'))
-  },
   sync: async ({ reset }) => {
     showSummary(db.get('videos'))
     const list = await fetchWatchList()
@@ -53,24 +50,10 @@ const commands = {
 
       showSummary(db.get('videos'))
 
-      const channels = db.get('videos').groupBy('channel._id').value()
-      db.set('channels', []).write()
-      for (const channelId in channels) {
-        db.get('channels')
-          .push({
-            _id: channelId,
-            name: _.get(channels[channelId], '[0].channel.name'),
-            count: channels[channelId].length,
-          })
-          .write()
-      }
+      updateChannelsData()
     }
   },
-  open: () => {
-    const [, _id] = argv._
-    openInBrowser(_id)
-  },
-  vids: async ({ views, duration, short, long, since, today, subWeek }) => {
+  list: async ({ views, duration, short, long, since }) => {
     let order = ['indice']
     let direction = ['desc']
     let orderFilter = (v) => is.number(v.views)
@@ -115,15 +98,6 @@ const commands = {
       dateFilter = (v) => new Date(v.publicationDate) > sinceResult
     }
 
-    if (today) {
-      dateFilter = (v) => dateFns.isToday(new Date(v.publicationDate))
-    }
-
-    if (subWeek) {
-      const date = dateFns.subDays(new Date(), 7)
-      dateFilter = (v) => new Date(v.publicationDate) > date
-    }
-
     const list = db
       .get('videos')
       .filter(dateFilter)
@@ -146,31 +120,6 @@ const commands = {
     })
 
     openInBrowser(toOpen)
-  },
-  channels: () => {
-    const channels = db
-      .get('channels')
-      .orderBy(['count'], ['desc'])
-      .filter((c) => c.count > 0)
-
-    channels
-      .slice(0, 10)
-      .value()
-      .forEach((channel) => {
-        console.log(
-          `${String(channel.count).padStart(3, ' ')}: ${channel.name}`
-        )
-      })
-
-    console.log(
-      `... and ${channels
-        .slice(10)
-        .size()} other channels with a total of ${channels
-        .slice(10)
-        .map('count')
-        .sum()
-        .value()} more videos`
-    )
   },
 }
 
@@ -296,6 +245,37 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
 
 function fixSize(text, size) {
   return text.slice(0, size).padStart(size, ' ')
+}
+
+function updateChannelsData() {
+  const channelsIndex = db.get('videos').groupBy('channel._id').value()
+  const channels = db.get('channels')
+  let newChannelsCount = 0
+  let channelsUpdatedCount = 0
+  for (const channelId in channelsIndex) {
+    const dbChannel = channels.find({ _id: channelId })
+    const newChannelName = _.get(channelsIndex[channelId], '[0].channel.name')
+    const values = {
+      name: newChannelName,
+    }
+    if (dbChannel.size().value() > 0) {
+      if (dbChannel.get('name').value() !== newChannelName) {
+        channelsUpdatedCount++
+        dbChannel.assign(values).write()
+      }
+    } else {
+      newChannelsCount++
+      channels
+        .push({
+          _id: channelId,
+          ...values,
+        })
+        .write()
+    }
+  }
+  if (newChannelsCount) console.log(`${newChannelsCount} new channels`)
+  if (channelsUpdatedCount)
+    console.log(`${channelsUpdatedCount} updated channels`)
 }
 
 if (commands[command]) commands[command](argv)

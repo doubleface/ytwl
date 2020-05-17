@@ -19,7 +19,7 @@ const inquirer = require('inquirer')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'short', 'long', 'duration'],
+  boolean: ['reset', 'views', 'short', 'long', 'duration', 'sync'],
   string: ['since'],
 })
 debug('argv: %O', argv)
@@ -28,8 +28,8 @@ debug('command: %s', command)
 
 db.defaults({ videos: [], channels: [] }).write()
 
-const commands = {
-  sync: async ({ reset }) => {
+class Commands {
+  async sync({ reset } = {}) {
     showSummary(db.get('videos'))
     const list = await fetchWatchList()
     debug('result: %O', list)
@@ -52,8 +52,12 @@ const commands = {
 
       updateChannelsData()
     }
-  },
-  list: async ({ views, duration, short, long, since }) => {
+  }
+
+  async list({ views, duration, short, long, since, sync }) {
+    if (sync) {
+      await this.sync()
+    }
     let order = ['indice']
     let direction = ['desc']
     let orderFilter = (v) => is.number(v.views)
@@ -120,7 +124,7 @@ const commands = {
     })
 
     openInBrowser(toOpen)
-  },
+  }
 }
 
 function formatCreateVid(v) {
@@ -278,4 +282,9 @@ function updateChannelsData() {
     console.log(`${channelsUpdatedCount} updated channels`)
 }
 
-if (commands[command]) commands[command](argv)
+const commands = new Commands()
+
+if (commands[command])
+  commands[command](argv).catch((err) => {
+    console.error(err)
+  })

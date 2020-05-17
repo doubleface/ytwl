@@ -275,6 +275,7 @@ function detectAndConvertFrUnit(unit) {
   const frDict = {
     seconde: 'second',
     heure: 'hour',
+    minute: 'minute',
     jour: 'day',
     semaine: 'week',
     mois: 'month',

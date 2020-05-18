@@ -14,13 +14,12 @@ const _ = require('lodash')
 const open = require('open')
 const dateFns = require('date-fns')
 const chalk = require('chalk')
-const is = require('@sindresorhus/is')
 const inquirer = require('inquirer')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'views', 'short', 'long', 'duration', 'sync'],
-  string: ['since'],
+  boolean: ['reset', 'short', 'long', 'sync'],
+  string: ['since', 'sort'],
 })
 debug('argv: %O', argv)
 const [command] = argv._
@@ -54,27 +53,36 @@ class Commands {
     }
   }
 
-  async list({ views, duration, short, long, since, sync }) {
+  async list({ sort, short, long, since, sync }) {
     if (sync) {
       await this.sync()
     }
+
     let order = ['indice']
     let direction = ['desc']
-    let orderFilter = (v) => is.number(v.views)
+
+    if (sort === '') {
+      const sortCriterias = [
+        { name: 'indice', value: ['indice', 'desc'] },
+        { name: 'duration', value: ['duration.value', 'asc'] },
+        { name: 'views', value: ['views', 'desc'] },
+        { name: 'progress', value: ['progress.value', 'desc'] },
+        { name: 'publicationDate', value: ['publicationDate', 'asc'] },
+        { name: 'importDate', value: ['importDate', 'desc'] },
+      ]
+
+      const { sortOrder } = await inquirer.prompt({
+        type: 'list',
+        name: 'sortOrder',
+        choices: sortCriterias,
+      })
+
+      order = [sortOrder[0]]
+      direction = [sortOrder[1]]
+    }
+
     let durationFilter = (v) => v
     let dateFilter = (v) => v
-
-    if (views) {
-      order = ['views']
-      direction = ['desc']
-      orderFilter = (v) => is.number(v.views)
-    }
-
-    if (duration) {
-      order = ['duration.value']
-      direction = ['asc']
-      orderFilter = (v) => v
-    }
 
     if (short) {
       durationFilter = (v) => v.duration.value <= 600
@@ -105,7 +113,6 @@ class Commands {
     const list = db
       .get('videos')
       .filter(dateFilter)
-      .filter(orderFilter)
       .filter(durationFilter)
       .map((v) => ({ ...v, indice: getIndice(v) }))
       .orderBy(order, direction)
@@ -207,7 +214,7 @@ ${finalText}
 }
 
 function getIndice(v) {
-  if (!_.get(v, 'duration.value')) return 0
+  if (!_.get(v, 'duration.value') || !_.get(v, 'views')) return 0
   const result = Math.round(_.get(v, 'views', 0) / _.get(v, 'duration.value'))
   return result
 }
@@ -227,7 +234,10 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
   )
   const title = fixSize(_.get(v, 'title.value', 'no title'), 50)
   const duration = fixSize(_.get(v, 'duration.raw', 'no duration'), 7)
-  const views = fixSize(new Intl.NumberFormat().format(v.views) + ' views', 15)
+  const views = fixSize(
+    v.views ? new Intl.NumberFormat().format(v.views) + ' views' : 'N/A',
+    15
+  )
   const publicationDate = fixSize(
     dateFns.formatDistanceToNow(new Date(v.publicationDate), {
       addSuffix: true,

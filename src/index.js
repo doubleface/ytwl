@@ -136,7 +136,9 @@ class Commands {
       source: async (sofar, input) => {
         return list
           .filter((v) =>
-            v.channel.name.toLowerCase().includes(input.toLowerCase())
+            `${v.channel.name} ${v.title.value}`
+              .toLowerCase()
+              .includes(input.toLowerCase())
           )
           .map((v) => ({
             name: getVideoTextToDisplay(v),

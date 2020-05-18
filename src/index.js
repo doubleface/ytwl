@@ -16,6 +16,10 @@ const dateFns = require('date-fns')
 const chalk = require('chalk')
 const inquirer = require('inquirer')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
+inquirer.registerPrompt(
+  'checkbox-plus',
+  require('inquirer-checkbox-plus-prompt')
+)
 
 const argv = parseArgs(process.argv.slice(2), {
   boolean: ['reset', 'short', 'long', 'sync'],
@@ -120,14 +124,26 @@ class Commands {
     var ui = new inquirer.ui.BottomBar()
     ui.log.write(showSummary(list, true))
     const { toOpen } = await inquirer.prompt({
-      type: 'list',
+      type: 'checkbox-plus',
       name: 'toOpen',
-      choices: list
-        .map((v) => ({
-          name: getVideoTextToDisplay(v),
-          value: v._id,
-        }))
-        .value(),
+      message: 'Choose a video to open',
+      pageSize: 10,
+      searchable: true,
+      validate: (list) => {
+        if (list.length >= 1) return true
+        return 'Please select at least one item'
+      },
+      source: async (sofar, input) => {
+        return list
+          .filter((v) =>
+            v.channel.name.toLowerCase().includes(input.toLowerCase())
+          )
+          .map((v) => ({
+            name: getVideoTextToDisplay(v),
+            value: v._id,
+          }))
+          .value()
+      },
     })
 
     openInBrowser(toOpen)
@@ -219,13 +235,19 @@ function getIndice(v) {
   return result
 }
 
-function openInBrowser(_id) {
-  const vid = db.get('videos').find({ _id }).value()
-  if (!vid)
-    throw new Error(`Could not find video with id ${_id}. Need a sync ?`)
+function openInBrowser(ids) {
+  if (ids.length === 1) {
+    const [_id] = ids
+    const vid = db.get('videos').find({ _id }).value()
+    if (!vid)
+      throw new Error(`Could not find video with id ${_id}. Need a sync ?`)
 
-  const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
-  open(url)
+    const url = `https://www.youtube.com/watch?v=${_id}&list=WL&t=${vid.progress.value}s`
+    open(url)
+  } else {
+    const url = `http://www.youtube.com/watch_videos?video_ids=` + ids.join(',')
+    open(url)
+  }
 }
 
 function getVideoTextToDisplay(v, mainField = 'indice') {

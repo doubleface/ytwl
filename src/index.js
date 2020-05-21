@@ -136,7 +136,7 @@ class Commands {
       source: async (sofar, input) => {
         return list
           .filter((v) =>
-            `${v.channel.name} ${v.title.value}`
+            `${_.get(v, 'channel.name')} ${_.get(v, 'title.value')}`
               .toLowerCase()
               .includes(input.toLowerCase())
           )
@@ -263,9 +263,12 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
     15
   )
   const publicationDate = fixSize(
-    dateFns.formatDistanceToNow(new Date(v.publicationDate), {
-      addSuffix: true,
-    }),
+    dateFns.formatDistanceToNow(
+      new Date(_.get(v, 'publicationDate', Date.now())),
+      {
+        addSuffix: true,
+      }
+    ),
     20
   )
   const indice = fixSize(v.indice + ' v/s', 7)

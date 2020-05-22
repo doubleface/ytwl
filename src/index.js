@@ -22,7 +22,7 @@ inquirer.registerPrompt(
 )
 
 const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'short', 'long', 'sync'],
+  boolean: ['reset', 'short', 'long', 'sync', 'deleted'],
   string: ['since', 'sort'],
 })
 debug('argv: %O', argv)
@@ -57,7 +57,7 @@ class Commands {
     }
   }
 
-  async list({ sort, short, long, since, sync }) {
+  async list({ sort, short, long, since, sync, deleted }) {
     if (sync) {
       await this.sync()
     }
@@ -87,6 +87,7 @@ class Commands {
 
     let durationFilter = (v) => v
     let dateFilter = (v) => v
+    let deletedFilter = (v) => v
 
     if (short) {
       durationFilter = (v) => v.duration.value <= 600
@@ -94,6 +95,10 @@ class Commands {
 
     if (long) {
       durationFilter = (v) => v.duration.value >= 3600
+    }
+
+    if (deleted) {
+      deletedFilter = (v) => v._deleted
     }
 
     if (since !== undefined) {
@@ -118,6 +123,7 @@ class Commands {
       .get('videos')
       .filter(dateFilter)
       .filter(durationFilter)
+      .filter(deletedFilter)
       .map((v) => ({ ...v, indice: getIndice(v) }))
       .orderBy(order, direction)
 

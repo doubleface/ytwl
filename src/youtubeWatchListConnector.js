@@ -25,13 +25,15 @@ async function init() {
 async function fetchWatchList() {
   const { browser, page } = await init()
   let { videoList, ctoken, itct, idtoken } = await fetchInitWatchList(page)
-  const { moreVideoList } = await fetchMoreVideos(page, {
-    ctoken,
-    itct,
-    idtoken,
-  })
+  if (ctoken && itct && idtoken) {
+    const { moreVideoList } = await fetchMoreVideos(page, {
+      ctoken,
+      itct,
+      idtoken,
+    })
 
-  videoList.push.apply(videoList, moreVideoList)
+    videoList.push.apply(videoList, moreVideoList)
+  }
   debug('videoList length:', videoList.length)
 
   videoList = videoList.map(youtubeDataFormater)
@@ -84,6 +86,8 @@ async function fetchInitWatchList(page) {
   debug('videoList length:', videoList.length)
   const continuation = get(playlistVideoListRenderer, 'continuations[0]', {})
   debug('continuation data: %O', continuation)
+
+  if (!continuation || !continuation.nextContinuationData) return { videoList }
 
   const ctoken = continuation.nextContinuationData.continuation
   is.assert.nonEmptyString(ctoken)

@@ -8,6 +8,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@cozy/cli-tree": "^0.0.1",
     "@sindresorhus/is": "^2.1.1",
     "chalk": "^4.0.0",
     "date-fns": "^2.13.0",
@@ -18,7 +19,6 @@
     "inquirer-datepicker-prompt": "^0.4.2",
     "lodash": "^4.17.15",
     "lowdb": "^1.0.0",
-    "minimist": "^1.2.5",
     "open": "^7.0.4",
     "puppeteer": "^3.0.4"
   }

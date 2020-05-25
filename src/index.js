@@ -2,8 +2,8 @@
 
 /* eslint no-console: off */
 
+const { build } = require('@cozy/cli-tree')
 const path = require('path')
-const parseArgs = require('minimist')
 const debug = require('debug')('ytwl')
 const low = require('lowdb')
 const FileSync = require('lowdb/adapters/FileSync')
@@ -20,14 +20,7 @@ inquirer.registerPrompt(
   'checkbox-plus',
   require('inquirer-checkbox-plus-prompt')
 )
-
-const argv = parseArgs(process.argv.slice(2), {
-  boolean: ['reset', 'short', 'long', 'sync', 'deleted'],
-  string: ['since', 'sort'],
-})
-debug('argv: %O', argv)
-const [command] = argv._
-debug('command: %s', command)
+const NO_VALUE = '__no_value__'
 
 db.defaults({ videos: [], channels: [] }).write()
 
@@ -65,24 +58,29 @@ class Commands {
     let order = ['indice']
     let direction = ['desc']
 
-    if (sort === '') {
-      const sortCriterias = [
-        { name: 'indice', value: ['indice', 'desc'] },
-        { name: 'duration', value: ['duration.value', 'asc'] },
-        { name: 'views', value: ['views', 'desc'] },
-        { name: 'progress', value: ['progress.value', 'desc'] },
-        { name: 'publicationDate', value: ['publicationDate', 'asc'] },
-        { name: 'importDate', value: ['importDate', 'desc'] },
-      ]
+    if (sort !== NO_VALUE) {
+      if (sort === null) {
+        const sortCriterias = [
+          { name: 'indice', value: ['indice', 'desc'] },
+          { name: 'duration', value: ['duration.value', 'asc'] },
+          { name: 'views', value: ['views', 'desc'] },
+          { name: 'progress', value: ['progress.value', 'desc'] },
+          { name: 'publicationDate', value: ['publicationDate', 'asc'] },
+          { name: 'importDate', value: ['importDate', 'desc'] },
+        ]
 
-      const { sortOrder } = await inquirer.prompt({
-        type: 'list',
-        name: 'sortOrder',
-        choices: sortCriterias,
-      })
+        const { sortOrder } = await inquirer.prompt({
+          type: 'list',
+          name: 'sortOrder',
+          choices: sortCriterias,
+        })
 
-      order = [sortOrder[0]]
-      direction = [sortOrder[1]]
+        order = [sortOrder[0]]
+        direction = [sortOrder[1]]
+      } else {
+        order = [sort]
+        direction = ['asc']
+      }
     }
 
     let durationFilter = (v) => v
@@ -101,9 +99,9 @@ class Commands {
       deletedFilter = (v) => v._deleted
     }
 
-    if (since !== undefined) {
+    if (since !== NO_VALUE) {
       let sinceResult
-      if (since === '') {
+      if (since === null) {
         sinceResult = (
           await inquirer.prompt({
             type: 'datetime',
@@ -327,7 +325,71 @@ function updateChannelsData() {
 
 const commands = new Commands()
 
-if (commands[command])
-  commands[command](argv).catch((err) => {
-    console.error(err)
+const main = async () => {
+  const [parser] = build({
+    sync: {
+      description:
+        'Synchronize the local list of videos with your Watch Later playlist',
+      arguments: [
+        {
+          argument: '--reset',
+          action: 'storeTrue',
+          help:
+            'Start the local playlist with Watch Later playlist data from empty',
+        },
+      ],
+      handler: async (a) => commands.sync(a),
+    },
+    list: {
+      description: 'Get the videos list',
+      arguments: [
+        {
+          argument: '--sync',
+          action: 'storeTrue',
+          help: 'Run the sync command before listing the videos',
+        },
+        {
+          argument: '--since',
+          defaultValue: NO_VALUE,
+          nargs: '?',
+          help:
+            'Filter the list by date. Ex: 2020-05-25. Try no value to get an ui to chose the date.',
+        },
+        {
+          argument: '--sort',
+          defaultValue: NO_VALUE,
+          nargs: '?',
+          help:
+            'Video sorting criterias. Ex: "views". Try no value to get an ui to chose a value.',
+        },
+        {
+          argument: '--short',
+          action: 'storeTrue',
+          help: 'Only show the short videos (10min max)',
+        },
+        {
+          argument: '--long',
+          action: 'storeTrue',
+          help: 'Only show the long videos (1h min)',
+        },
+        {
+          argument: '--deleted',
+          action: 'storeTrue',
+          help:
+            'Only show deleted video (videos which have been made private by the author since the last sync)',
+        },
+      ],
+      handler: async (a) => commands.list(a),
+    },
   })
+
+  const args = parser.parseArgs()
+  await args.handler(args)
+}
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

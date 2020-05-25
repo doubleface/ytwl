@@ -2,6 +2,14 @@
 # yarn lockfile v1
 
 
+"@cozy/cli-tree@^0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@cozy/cli-tree/-/cli-tree-0.0.1.tgz#c94c36490f7bf57b219c5ab4bbe261eb60ff9aa7"
+  integrity sha512-Rsvc/AfxLY5Y5wrtAyBb2JdRVVxUKBBnKKQc4ztcDpI8PlVvdhxWJtTbBvjukdw+vGfexbr5vukpVgfrtjYVTQ==
+  dependencies:
+    argparse "^1.0.10"
+    lodash "^4.17.15"
+
 "@sindresorhus/is@^2.1.1":
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-2.1.1.tgz#ceff6a28a5b4867c2dd4a1ba513de278ccbe8bb1"
@@ -88,6 +96,13 @@ are-we-there-yet@~1.1.2:
   dependencies:
     delegates "^1.0.0"
     readable-stream "^2.0.6"
+
+argparse@^1.0.10:
+  version "1.0.10"
+  resolved "https://registry.yarnpkg.com/argparse/-/argparse-1.0.10.tgz#bcd6791ea5ae09725e17e5ad988134cd40b3d911"
+  integrity sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==
+  dependencies:
+    sprintf-js "~1.0.2"
 
 balanced-match@^1.0.0:
   version "1.0.0"
@@ -1014,6 +1029,11 @@ signal-exit@^3.0.0, signal-exit@^3.0.2:
   version "3.0.3"
   resolved "https://registry.yarnpkg.com/signal-exit/-/signal-exit-3.0.3.tgz#a1410c2edd8f077b08b4e253c8eacfcaf057461c"
   integrity sha512-VUJ49FC8U1OxwZLxIbTTrDvLnf/6TDgxZcK8wxR8zs13xpx7xbG60ndBlhNrFi2EMuFRoeDoJO7wthSLq42EjA==
+
+sprintf-js@~1.0.2:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
+  integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
 
 sqlite3-promisify@^1.0.0:
   version "1.0.1"

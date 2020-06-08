@@ -206,6 +206,9 @@ function findUpdatedData(oldVid, newVid) {
 }
 
 function getSummary(videos) {
+  function getImportDateDistance(v) {
+    return Date.now() - new Date(_.get(v, 'metadata.importDate')).getTime()
+  }
   return {
     count: videos.size(),
     nbViews: new Intl.NumberFormat().format(videos.map('views').sum().value()),
@@ -213,6 +216,11 @@ function getSummary(videos) {
       new Date(),
       new Date(Date.now() + videos.map('duration.value').sum().value() * 1000),
       { unit: 'hour' }
+    ),
+    totalImportDateDistance: dateFns.formatDistanceStrict(
+      new Date(),
+      new Date(Date.now() + videos.map(getImportDateDistance).sum().value()),
+      { unit: 'day' }
     ),
     totalIndice: videos.map(getIndice).sum().value(),
   }
@@ -226,7 +234,11 @@ function showSummary(videos, getTextOnly = false) {
     summary.nbViews
   )} views and ${chalk.bold(
     summary.totalTime
-  )} of viewing time and ${chalk.blue(summary.totalIndice)} total indice`
+  )} of viewing time and ${chalk.blue(
+    summary.totalIndice
+  )} total indice and ${chalk.bold(
+    summary.totalImportDateDistance
+  )} of import date distance`
   if (getTextOnly) {
     return finalText
   }
@@ -236,8 +248,18 @@ ${finalText}
 }
 
 function getIndice(v) {
-  if (!_.get(v, 'duration.value') || !_.get(v, 'views')) return 0
-  const result = Math.round(_.get(v, 'views', 0) / _.get(v, 'duration.value'))
+  const importDate = new Date(_.get(v, 'metadata.importDate'))
+  const importDateNbHours =
+    (new Date().getTime() - importDate.getTime()) / (1000 * 3600)
+  // 24*28 = 672
+  // a 1 month video gets + 50 indice
+  const importDateIndice = Math.round((50 / (28 * 24)) * importDateNbHours)
+
+  if (!_.get(v, 'duration.value') || !_.get(v, 'views')) return importDateIndice
+  const remainingDuration =
+    _.get(v, 'duration.value') - _.get(v, 'progress.value')
+  const result =
+    Math.round(_.get(v, 'views', 0) / remainingDuration) + importDateIndice
   return result
 }
 
@@ -262,24 +284,48 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
   )
   const title = fixSize(_.get(v, 'title.value', 'no title'), 50)
   const duration = fixSize(_.get(v, 'duration.raw', 'no duration'), 7)
+  const progress = fixSize(
+    Math.round(
+      (_.get(v, 'progress.value') / _.get(v, 'duration.value')) * 100
+    ) + '%',
+    5
+  )
   const views = fixSize(
     v.views ? new Intl.NumberFormat().format(v.views) + ' views' : 'N/A',
     15
   )
-  const publicationDate = fixSize(
+  // const publicationDate = fixSize(
+  //   dateFns.formatDistanceToNow(
+  //     new Date(_.get(v, 'publicationDate', Date.now())),
+  //     {
+  //       addSuffix: true,
+  //     }
+  //   ),
+  //   20
+  // )
+
+  const importDate = fixSize(
     dateFns.formatDistanceToNow(
-      new Date(_.get(v, 'publicationDate', Date.now())),
+      new Date(_.get(v, 'metadata.importDate', Date.now())),
       {
         addSuffix: true,
       }
     ),
     20
   )
-  const indice = fixSize(v.indice + ' v/s', 7)
+  const indice = fixSize(v.indice, 5)
   const _deleted = v._deleted ? chalk.red(' DELETED') : ''
 
   let result = `${channel} ${title}: `
-  const fields = { duration, views, indice, publicationDate, _deleted }
+  const fields = {
+    duration,
+    views,
+    indice,
+    // publicationDate,
+    importDate,
+    progress,
+    _deleted,
+  }
 
   result += chalk.bold(fields[mainField]) + ','
 
@@ -289,7 +335,7 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
 }
 
 function fixSize(text, size) {
-  return text.slice(0, size).padStart(size, ' ')
+  return text.toString().slice(0, size).padStart(size, ' ')
 }
 
 function updateChannelsData() {

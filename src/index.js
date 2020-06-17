@@ -248,19 +248,33 @@ ${finalText}
 }
 
 function getIndice(v) {
-  const importDate = new Date(_.get(v, 'metadata.importDate'))
-  const importDateNbHours =
-    (new Date().getTime() - importDate.getTime()) / (1000 * 3600)
-  // 24*28 = 672
-  // a 1 month video gets + 50 indice
-  const importDateIndice = Math.round((50 / (28 * 24)) * importDateNbHours)
+  const weights = {
+    'metadata.importDate': {
+      limit: 15, // the number of days for which the weight is maximal
+      weight: 50, // the maximal possible import date indice
+    },
+  }
 
-  if (!_.get(v, 'duration.value') || !_.get(v, 'views')) return importDateIndice
-  const remainingDuration =
-    _.get(v, 'duration.value') - _.get(v, 'progress.value')
-  const result =
-    Math.round(_.get(v, 'views', 0) / remainingDuration) + importDateIndice
-  return result
+  const importDate = new Date(_.get(v, 'metadata.importDate'))
+  const importAgeInDays =
+    (new Date().getTime() - importDate.getTime()) / (1000 * 3600 * 24)
+  let importDateIndice = Math.round(
+    (weights['metadata.importDate'].weight /
+      weights['metadata.importDate'].limit) *
+      importAgeInDays
+  )
+  if (importDateIndice > weights['metadata.importDate'].weight) {
+    importDateIndice = weights['metadata.importDate'].weight
+  }
+
+  let viewsPerSecond = 0
+  if (_.get(v, 'duration.value') && _.get(v, 'views')) {
+    const remainingDuration =
+      _.get(v, 'duration.value') - _.get(v, 'progress.value')
+    viewsPerSecond = Math.round(_.get(v, 'views', 0) / remainingDuration)
+  }
+
+  return viewsPerSecond + importDateIndice
 }
 
 function openInBrowser(ids) {

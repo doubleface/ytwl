@@ -20,6 +20,8 @@
     "lodash": "^4.17.15",
     "lowdb": "^1.0.0",
     "open": "^7.0.4",
-    "puppeteer": "^3.0.4"
+    "parse-strings-in-object": "^2.0.0",
+    "puppeteer": "^3.0.4",
+    "rc": "^1.2.8"
   }
 }

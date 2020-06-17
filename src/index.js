@@ -21,6 +21,16 @@ inquirer.registerPrompt(
   require('inquirer-checkbox-plus-prompt')
 )
 const NO_VALUE = '__no_value__'
+const conf = require('parse-strings-in-object')(
+  require('rc')('ytwl', {
+    indice: {
+      importDateLimit: 15,
+      importDateWeight: 50,
+    },
+  })
+)
+
+debug('conf: %O', conf)
 
 db.defaults({ videos: [], channels: [] }).write()
 
@@ -248,23 +258,16 @@ ${finalText}
 }
 
 function getIndice(v) {
-  const weights = {
-    'metadata.importDate': {
-      limit: 15, // the number of days for which the weight is maximal
-      weight: 50, // the maximal possible import date indice
-    },
-  }
-
+  const { importDateWeight, importDateLimit } = conf.indice
   const importDate = new Date(_.get(v, 'metadata.importDate'))
   const importAgeInDays =
     (new Date().getTime() - importDate.getTime()) / (1000 * 3600 * 24)
+
   let importDateIndice = Math.round(
-    (weights['metadata.importDate'].weight /
-      weights['metadata.importDate'].limit) *
-      importAgeInDays
+    (importDateWeight / importDateLimit) * importAgeInDays
   )
-  if (importDateIndice > weights['metadata.importDate'].weight) {
-    importDateIndice = weights['metadata.importDate'].weight
+  if (importDateIndice > importDateWeight) {
+    importDateIndice = importDateWeight
   }
 
   let viewsPerSecond = 0

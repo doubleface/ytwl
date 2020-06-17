@@ -144,13 +144,11 @@ async function stop({ browser, page }) {
   await browser.close()
 }
 
-function youtubeDataFormater(vid, index, full) {
+function youtubeDataFormater(vid) {
   const { playlistVideoRenderer } = vid
   debug('playlistVideoRenderer: %O', playlistVideoRenderer)
   const _id = playlistVideoRenderer.videoId
   is.assert.string(_id)
-  const recency = full.length - index // the more the watch list is long, and the more the video is first in the list, the more it is recent
-  is.assert.number(recency)
   const title = get(playlistVideoRenderer, 'title.simpleText')
   if (title === undefined) {
     debug(`Got %s video deleted`, _id)
@@ -197,7 +195,6 @@ function youtubeDataFormater(vid, index, full) {
 
   return {
     _id,
-    recency,
     title: {
       value: title,
       raw: rawTitle,

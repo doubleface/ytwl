@@ -14,6 +14,7 @@ const _ = require('lodash')
 const open = require('open')
 const dateFns = require('date-fns')
 const chalk = require('chalk')
+const Database = require('better-sqlite3')
 const inquirer = require('inquirer')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 inquirer.registerPrompt(
@@ -21,10 +22,11 @@ inquirer.registerPrompt(
   require('inquirer-checkbox-plus-prompt')
 )
 const NO_VALUE = '__no_value__'
+const DB_PATH = path.join(__dirname, '..', 'data', 'stats.db')
 const conf = require('parse-strings-in-object')(
   require('rc')('ytwl', {
     indice: {
-      importDateLimit: 15,
+      importDateLimit: 7,
       importDateWeight: 50,
     },
   })
@@ -54,7 +56,23 @@ class Commands {
       const upCount = updateVidsData(existingIds, fetchedIndexedById)
       console.log(`${chalk.yellow(upCount)} videos updated`)
 
-      showSummary(db.get('videos'))
+      const summary = showSummary(db.get('videos'))
+      const statsDb = new Database(DB_PATH, { verbose: debug })
+      const dbParams = [
+        new Date().toISOString(),
+        summary.count.value(),
+        summary.nbViews,
+        summary.totalTime,
+        summary.totalImportDateDistance,
+      ]
+      debug('db operation params: %O', dbParams)
+      const info = statsDb
+        .prepare(
+          'INSERT INTO stats (time, videos, views, durations, importAges) VALUES (?, ?, ?, ?, ?)'
+        )
+        .run(dbParams)
+      debug('db operation info: %O', info)
+      statsDb.close()
 
       updateChannelsData()
     }
@@ -221,16 +239,10 @@ function getSummary(videos) {
   }
   return {
     count: videos.size(),
-    nbViews: new Intl.NumberFormat().format(videos.map('views').sum().value()),
-    totalTime: dateFns.formatDistanceStrict(
-      new Date(),
-      new Date(Date.now() + videos.map('duration.value').sum().value() * 1000),
-      { unit: 'hour' }
-    ),
-    totalImportDateDistance: dateFns.formatDistanceStrict(
-      new Date(),
-      new Date(Date.now() + videos.map(getImportDateDistance).sum().value()),
-      { unit: 'day' }
+    nbViews: videos.map('views').sum().value(),
+    totalTime: Math.round(videos.map('duration.value').sum().value() / 3600),
+    totalImportDateDistance: Math.round(
+      videos.map(getImportDateDistance).sum().value() / (1000 * 3600 * 24)
     ),
     totalIndice: videos.map(getIndice).sum().value(),
   }
@@ -241,20 +253,21 @@ function showSummary(videos, getTextOnly = false) {
   const finalText = `${chalk.bold(
     summary.count
   )} videos to view with a total of ${chalk.bold(
-    summary.nbViews
+    new Intl.NumberFormat().format(summary.nbViews)
   )} views and ${chalk.bold(
     summary.totalTime
-  )} of viewing time and ${chalk.blue(
+  )} hours of viewing time and ${chalk.blue(
     summary.totalIndice
   )} total indice and ${chalk.bold(
     summary.totalImportDateDistance
-  )} of import date distance`
+  )} days of import date age`
   if (getTextOnly) {
     return finalText
   }
   console.log(`
 ${finalText}
       `)
+  return summary
 }
 
 function getIndice(v) {

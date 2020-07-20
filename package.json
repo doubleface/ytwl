@@ -17,7 +17,7 @@
     "inquirer": "^7.1.0",
     "inquirer-checkbox-plus-prompt": "^1.0.1",
     "inquirer-datepicker-prompt": "^0.4.2",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "lowdb": "^1.0.0",
     "open": "^7.0.4",
     "parse-strings-in-object": "^2.0.0",

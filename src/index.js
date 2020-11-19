@@ -61,9 +61,9 @@ class Commands {
       const dbParams = [
         new Date().toISOString(),
         summary.count.value(),
-        summary.nbViews,
-        summary.totalTime,
-        summary.totalImportDateDistance,
+        summary.nbViews || 0,
+        summary.totalTime || 0,
+        summary.totalImportDateDistance || 0,
       ]
       debug('db operation params: %O', dbParams)
       const info = statsDb
@@ -239,7 +239,7 @@ function getSummary(videos) {
   }
   return {
     count: videos.size(),
-    nbViews: videos.map('views').sum().value(),
+    // nbViews: videos.map('views').sum().value(),
     totalTime: Math.round(videos.map('duration.value').sum().value() / 3600),
     totalImportDateDistance: Math.round(
       videos.map(getImportDateDistance).sum().value() / (1000 * 3600 * 24)
@@ -253,8 +253,6 @@ function showSummary(videos, getTextOnly = false) {
   const finalText = `${chalk.bold(
     summary.count
   )} videos to view with a total of ${chalk.bold(
-    new Intl.NumberFormat().format(summary.nbViews)
-  )} views and ${chalk.bold(
     summary.totalTime
   )} hours of viewing time and ${chalk.blue(
     summary.totalIndice
@@ -284,10 +282,10 @@ function getIndice(v) {
   }
 
   let viewsPerSecond = 0
-  if (_.get(v, 'duration.value') && _.get(v, 'views')) {
+  if (_.get(v, 'duration.value')) {
     const remainingDuration =
       _.get(v, 'duration.value') - _.get(v, 'progress.value')
-    viewsPerSecond = Math.round(_.get(v, 'views', 0) / remainingDuration)
+    viewsPerSecond = Math.round(10000 / remainingDuration)
   }
 
   return viewsPerSecond + importDateIndice
@@ -320,10 +318,10 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
     ) + '%',
     5
   )
-  const views = fixSize(
-    v.views ? new Intl.NumberFormat().format(v.views) + ' views' : 'N/A',
-    15
-  )
+  // const views = fixSize(
+  //   v.views ? new Intl.NumberFormat().format(v.views) + ' views' : 'N/A',
+  //   15
+  // )
   // const publicationDate = fixSize(
   //   dateFns.formatDistanceToNow(
   //     new Date(_.get(v, 'publicationDate', Date.now())),
@@ -349,7 +347,6 @@ function getVideoTextToDisplay(v, mainField = 'indice') {
   let result = `${channel} ${title}: `
   const fields = {
     duration,
-    views,
     indice,
     // publicationDate,
     importDate,

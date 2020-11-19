@@ -13,8 +13,8 @@ module.exports = fetchWatchList
 
 async function init() {
   const browser = await puppeteer.launch({
-    // headless: false,
-    // devtools: true,
+    // headless: false
+    // devtools: true
   })
   const page = await browser.newPage()
 
@@ -149,7 +149,7 @@ function youtubeDataFormater(vid) {
   debug('playlistVideoRenderer: %O', playlistVideoRenderer)
   const _id = playlistVideoRenderer.videoId
   is.assert.string(_id)
-  const title = get(playlistVideoRenderer, 'title.simpleText')
+  const title = get(playlistVideoRenderer, 'title.runs[0].text')
   if (title === undefined) {
     debug(`Got %s video deleted`, _id)
     return { _id, _deleted: true }
@@ -217,8 +217,6 @@ function youtubeDataFormater(vid) {
 function getMetaData(rawTitle) {
   debug('Trying to get metadata from raw title: %s', rawTitle)
   const regexps = [
-    /^.*(\w+\s\w+)\sago.*\s([0-9,]+)\sviews$/,
-    /^.*il y a (\w+\s\w+).* ([0-9\s]+)\svues$/,
     /.*(\w+\s\w+)\sago.*$/,
     /.*il y a (\w+\S\w+).*$/,
     /.*il y a (\w+\s\w+).*$/,
@@ -233,9 +231,9 @@ function getMetaData(rawTitle) {
 
   // debug('matching: %O', matching)
   let [ago, views] = matching ? matching.slice(1).filter(Boolean) : []
-  if (views) views = Number(views.split(/\s/).join(''))
+  // if (views) views = Number(views.split(/\s/).join(''))
   debug('%s: %s, %s', rawTitle, ago, views)
-  const publicationDate = convertDistanceToDate(ago)
+  const publicationDate = ago ? convertDistanceToDate(ago) : new Date()
   is.assert.date(publicationDate)
 
   return {

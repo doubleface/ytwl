@@ -159,7 +159,6 @@ function youtubeDataFormater(vid) {
     playlistVideoRenderer,
     'title.accessibility.accessibilityData.label'
   )
-  is.assert.string(rawTitle)
   const duration = Number(get(playlistVideoRenderer, 'lengthSeconds', 0)) // number in seconds
   is.assert.number(duration)
   const rawDuration = get(
@@ -187,11 +186,8 @@ function youtubeDataFormater(vid) {
     ),
     name: get(playlistVideoRenderer, 'shortBylineText.runs[0].text'),
   }
-  is.assert.string(channel._id)
-  is.assert.string(channel.name)
 
   const thumbnail = get(playlistVideoRenderer, 'thumbnail.thumbnails[3].url') // string url
-  is.assert.urlString(thumbnail)
 
   return {
     _id,
@@ -224,7 +220,7 @@ function getMetaData(rawTitle) {
 
   let matching
   for (const regex of regexps) {
-    matching = rawTitle.match(regex)
+    matching = (rawTitle || '').match(regex)
     if (!matching) continue
     else break
   }
@@ -232,7 +228,7 @@ function getMetaData(rawTitle) {
   // debug('matching: %O', matching)
   let [ago, views] = matching ? matching.slice(1).filter(Boolean) : []
   // if (views) views = Number(views.split(/\s/).join(''))
-  debug('%s: %s, %s', rawTitle, ago, views)
+  debug('rawtitle: %s, ago: %s, views: %s', rawTitle, ago, views)
   const publicationDate = ago ? convertDistanceToDate(ago) : new Date()
   is.assert.date(publicationDate)
 

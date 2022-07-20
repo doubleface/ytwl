@@ -407,8 +407,7 @@ const main = async () => {
         {
           argument: '--reset',
           action: 'storeTrue',
-          help:
-            'Start the local playlist with Watch Later playlist data from empty',
+          help: 'Start the local playlist with Watch Later playlist data from empty',
         },
       ],
       handler: async (a) => commands.sync(a),
@@ -425,15 +424,13 @@ const main = async () => {
           argument: '--since',
           defaultValue: NO_VALUE,
           nargs: '?',
-          help:
-            'Filter the list by date. Ex: 2020-05-25. Try no value to get an ui to chose the date.',
+          help: 'Filter the list by date. Ex: 2020-05-25. Try no value to get an ui to chose the date.',
         },
         {
           argument: '--sort',
           defaultValue: NO_VALUE,
           nargs: '?',
-          help:
-            'Video sorting criterias. Ex: "views". Try no value to get an ui to chose a value.',
+          help: 'Video sorting criterias. Ex: "views". Try no value to get an ui to chose a value.',
         },
         {
           argument: '--short',
@@ -448,8 +445,7 @@ const main = async () => {
         {
           argument: '--deleted',
           action: 'storeTrue',
-          help:
-            'Only show deleted video (videos which have been made private by the author since the last sync)',
+          help: 'Only show deleted video (videos which have been made private by the author since the last sync)',
         },
       ],
       handler: async (a) => commands.list(a),

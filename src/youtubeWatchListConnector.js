@@ -104,17 +104,9 @@ async function initSession(page) {
     debug('found session.json file')
     session = JSON.parse(fs.readFileSync(SESSION_PATH))
   } else {
+    // TODO use j2team cookie chrome extension
     debug('no session.json file reading firefox session file')
-    session = JSON.parse(fs.readFileSync(FIREFOX_COOKIES_PATH)).map(
-      (cookie) => ({
-        name: cookie['Name raw'],
-        value: cookie['Content raw'],
-        url: cookie['Host raw'],
-        path: cookie['Path raw'],
-        expires: Number(cookie['Expires raw']),
-        httpOnly: cookie['HTTP only raw'] === 'true',
-      })
-    )
+    session = JSON.parse(fs.readFileSync(FIREFOX_COOKIES_PATH))
   }
   is.assert.nonEmptyArray(session)
 

@@ -36,7 +36,7 @@ async function fetchWatchList() {
   }
   debug('videoList length:', videoList.length)
 
-  videoList = videoList.map(youtubeDataFormater)
+  videoList = videoList.map(youtubeDataFormater).filter(Boolean)
 
   await stop({ browser, page })
 
@@ -138,6 +138,7 @@ async function stop({ browser, page }) {
 
 function youtubeDataFormater(vid) {
   const { playlistVideoRenderer } = vid
+	if (!playlistVideoRenderer) return false
   debug('playlistVideoRenderer: %O', playlistVideoRenderer)
   const _id = playlistVideoRenderer.videoId
   is.assert.string(_id)

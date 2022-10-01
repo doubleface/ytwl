@@ -5,8 +5,6 @@
 const { build } = require('@cozy/cli-tree')
 const path = require('path')
 const debug = require('debug')('ytwl')
-const low = require('lowdb')
-const FileSync = require('lowdb/adapters/FileSync')
 const fetchWatchList = require('./youtubeWatchListConnector')
 const _ = require('lodash')
 const open = require('open')
@@ -14,6 +12,7 @@ const dateFns = require('date-fns')
 const chalk = require('chalk')
 const Database = require('better-sqlite3')
 const inquirer = require('inquirer')
+const Model = require('./model')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 inquirer.registerPrompt('checkbox-plus', require('inquirer-checkbox-plus-prompt'))
 const NO_VALUE = '__no_value__'
@@ -28,108 +27,6 @@ const conf = require('parse-strings-in-object')(
 )
 
 debug('conf: %O', conf)
-
-class Model {
-  constructor() {
-    const adapter = new FileSync(path.join(__dirname, '..', 'data/youtube.json'))
-    this.db = low(adapter)
-    this.db.defaults({ videos: [], channels: [] }).write()
-  }
-
-  async getVideos() {
-    return this.db.get('videos').value()
-  }
-
-  async setVideos(videos) {
-    this.db.set('videos', videos).write()
-  }
-
-  async getChannels() {
-    return this.db.get('channels').value()
-  }
-
-  async setChannels(channels) {
-    this.db.set('channels', channels).write()
-  }
-
-  async updateChannelsData() {
-    const channelsIndex = _(await this.getVideos())
-      .groupBy('channel._id')
-      .value()
-    const channels = await this.getChannels()
-    let newChannelsCount = 0
-    let channelsUpdatedCount = 0
-    for (const channelId in channelsIndex) {
-      const dbChannelIndex = channels.findIndex(c => c._id === channelId)
-      const newChannelName = _.get(channelsIndex[channelId], '[0].channel.name')
-      const values = {
-        name: newChannelName
-      }
-      if (dbChannelIndex > -1) {
-        if (channels[dbChannelIndex]?.name !== newChannelName) {
-          channelsUpdatedCount++
-          Object.assign(channels[dbChannelIndex], values)
-        }
-      } else {
-        newChannelsCount++
-        channels.push({
-          _id: channelId,
-          ...values
-        })
-      }
-    }
-    await this.setChannels(channels)
-    return {
-      newChannelsCount,
-      channelsUpdatedCount
-    }
-  }
-
-  async addNewVids(existingIds, fetchedIndexedById) {
-    const toAddIds = _.difference(Object.keys(fetchedIndexedById), existingIds)
-    const videos = await this.getVideos()
-    for (const id of toAddIds) {
-      videos.push(formatCreateVid(fetchedIndexedById[id]))
-    }
-    await this.setVideos(videos)
-    return toAddIds.length
-  }
-
-  async removeReadVids(existingIds, fetchedIndexedById) {
-    const toRemoveIds = _.difference(existingIds, Object.keys(fetchedIndexedById))
-    const videos = await this.getVideos()
-    _(videos)
-      .remove(v => toRemoveIds.includes(v._id))
-      .value()
-    await this.setVideos(videos)
-    return toRemoveIds.length
-  }
-
-  async updateVidsData(existingIds, fetchedIndexedById) {
-    const videos = await this.getVideos()
-    const toUpdateIds = _.intersection(existingIds, Object.keys(fetchedIndexedById))
-    let upCount = 0
-    for (const id of toUpdateIds) {
-      const dbVidIndex = videos.findIndex(v => v._id === id)
-      if (findUpdatedData(videos[dbVidIndex], fetchedIndexedById[id])) {
-        upCount++
-      }
-      fetchedIndexedById[id].metadata = {
-        importDate: videos[dbVidIndex].metadata.importDate,
-        updateDate: new Date()
-      }
-      Object.assign(videos[dbVidIndex], fetchedIndexedById[id])
-    }
-    await this.setVideos(videos)
-    return upCount
-  }
-
-  async getVideoById(_id) {
-    return _(await model.getVideos())
-      .find({ _id })
-  }
-}
-
 const model = new Model()
 
 class Commands {
@@ -282,14 +179,6 @@ class Commands {
 
 function formatCreateVid(v) {
   return { ...v, metadata: { importDate: new Date() } }
-}
-
-function findUpdatedData(oldVid, newVid) {
-  const blackListAttributes = ['metadata', 'publicationDate']
-  return (
-    JSON.stringify(_.omit(oldVid, blackListAttributes)) !==
-    JSON.stringify(_.omit(newVid, blackListAttributes))
-  )
 }
 
 function getSummary(videos) {

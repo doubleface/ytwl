@@ -2,6 +2,7 @@
 
 /* eslint no-console: off */
 
+process.env.LOG_LEVEL='error'
 const { build } = require('@cozy/cli-tree')
 const path = require('path')
 const debug = require('debug')('ytwl')
@@ -285,6 +286,7 @@ function fixSize(text, size) {
 const commands = new Commands()
 
 const main = async () => {
+  await model.init()
   const [parser] = build({
     sync: {
       description: 'Synchronize the local list of videos with your Watch Later playlist',

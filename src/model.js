@@ -1,29 +1,64 @@
-const FileSync = require('lowdb/adapters/FileSync')
-const path = require('path')
-const low = require('lowdb')
 const _ = require('lodash')
+const { Q } = require('cozy-client')
+const { createClientInteractive } = require('cozy-client/dist/cli')
+
+const VIDEOS_DOCTYPE = 'ytwl.videos'
+const CHANNELS_DOCTYPE = 'ytwl.channels'
+
+const conf = require('parse-strings-in-object')(require('rc')('ytwl'))
 
 class Model {
-  constructor() {
-    const adapter = new FileSync(path.join(__dirname, '..', 'data/youtube.json'))
-    this.db = low(adapter)
-    this.db.defaults({ videos: [], channels: [] }).write()
+  async init() {
+    if (!conf.cozyUrl) {
+      throw new Error('Found no cozyUrl in .ytwlrc file')
+    }
+    this.client = await createClientInteractive({
+      uri: conf.cozyUrl,
+      scope: ['ytwl.videos', 'ytwl.channels'],
+      oauth: {
+        softwareID: 'ytwl'
+      }
+    })
   }
 
   async getVideos() {
-    return this.db.get('videos').value()
+    const { data } = await this.client.query(Q(VIDEOS_DOCTYPE))
+    return data
+  }
+
+  async resetVideos() {
+    const all = await this.getVideos()
+    if (all.length) {
+      await this.client.saveAll(all.map(v => ({ ...v, _deleted: true })))
+    }
   }
 
   async setVideos(videos) {
-    this.db.set('videos', videos).write()
+    await this.resetVideos()
+    if (videos.length) {
+      const finalVideos = videos.map(v => ({
+        ..._.omit(v, '_rev'),
+        _type: VIDEOS_DOCTYPE
+      }))
+      const result = await this.client.saveAll(finalVideos)
+    }
   }
 
   async getChannels() {
-    return this.db.get('channels').value()
+    const { data } = await this.client.query(Q(CHANNELS_DOCTYPE))
+    return data
   }
 
   async setChannels(channels) {
-    this.db.set('channels', channels).write()
+    const all = await this.getChannels()
+    if (all.length) {
+      await this.client.saveAll(all.map(v => ({ ...v, _deleted: true })))
+    }
+    if (channels.length) {
+      const result = await this.client.saveAll(
+        channels.map(v => ({ ..._.omit(v, '_rev'), _type: CHANNELS_DOCTYPE }))
+      )
+    }
   }
 
   async updateChannelsData() {
@@ -63,7 +98,10 @@ class Model {
     const toAddIds = _.difference(Object.keys(fetchedIndexedById), existingIds)
     const videos = await this.getVideos()
     for (const id of toAddIds) {
-      videos.push({ ...fetchedIndexedById[id], metadata: { importDate: new Date() } })
+      videos.push({
+        ...fetchedIndexedById[id],
+        metadata: { importDate: new Date() }
+      })
     }
     await this.setVideos(videos)
     return toAddIds.length
@@ -104,7 +142,15 @@ class Model {
 }
 
 function findUpdatedData(oldVid, newVid) {
-  const blackListAttributes = ['metadata', 'publicationDate']
+  const blackListAttributes = [
+    'metadata',
+    'publicationDate',
+    'deleted',
+    'id',
+    '_type',
+    '_rev',
+    'cozyMetadata'
+  ]
   return (
     JSON.stringify(_.omit(oldVid, blackListAttributes)) !==
     JSON.stringify(_.omit(newVid, blackListAttributes))

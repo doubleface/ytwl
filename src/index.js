@@ -11,13 +11,11 @@ const _ = require('lodash')
 const open = require('open')
 const dateFns = require('date-fns')
 const chalk = require('chalk')
-const Database = require('better-sqlite3')
 const inquirer = require('inquirer')
 const Model = require('./model')
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'))
 inquirer.registerPrompt('checkbox-plus', require('inquirer-checkbox-plus-prompt'))
 const NO_VALUE = '__no_value__'
-const DB_PATH = path.join(__dirname, '..', 'data', 'stats.db')
 const conf = require('parse-strings-in-object')(
   require('rc')('ytwl', {
     indice: {
@@ -49,24 +47,6 @@ class Commands {
 
       const upCount = await model.updateVidsData(existingIds, fetchedIndexedById)
       console.log(`${chalk.yellow(upCount)} videos updated`)
-
-      const summary = showSummary(await model.getVideos())
-      const statsDb = new Database(DB_PATH, { verbose: debug })
-      const dbParams = [
-        new Date().toISOString(),
-        summary.count,
-        summary.nbViews || 0,
-        summary.totalTime || 0,
-        summary.totalImportDateDistance || 0
-      ]
-      debug('db operation params: %O', dbParams)
-      const info = statsDb
-        .prepare(
-          'INSERT INTO stats (time, videos, views, durations, importAges) VALUES (?, ?, ?, ?, ?)'
-        )
-        .run(dbParams)
-      debug('db operation info: %O', info)
-      statsDb.close()
 
       const { newChannelsCount, channelsUpdatedCount } = await model.updateChannelsData()
 
